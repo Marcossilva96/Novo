@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema do Caçador</title>
+
+<style>
+:root {
+  --neon:#00eaff;
+  --dark:#050b14;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI,sans-serif}
+
+body{
+  background:#000;
+  color:var(--neon);
+  height:100vh;
+  overflow:hidden;
+}
+
+.bg{
+  position:fixed;
+  inset:0;
+  background:radial-gradient(circle at top,#0f2027,#000 70%);
+  z-index:0;
+}
+
+.hud{
+  position:fixed;
+  top:0;
+  width:100%;
+  padding:10px;
+  background:rgba(0,0,0,.65);
+  z-index:3;
+  font-size:14px;
+}
+
+.ui{
+  position:relative;
+  z-index:2;
+  height:100%;
+  padding-top:90px;
+}
+
+.screen{
+  display:none;
+  height:100%;
+  padding:20px;
+  animation:fade .3s ease;
+}
+
+.screen.active{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+@keyframes fade{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.title{font-size:26px;margin:15px}
+.stat{font-size:18px;margin:6px}
+
+button{
+  width:90%;
+  padding:14px;
+  margin:8px;
+  font-size:17px;
+  color:var(--neon);
+  background:rgba(0,234,255,.12);
+  border:1px solid var(--neon);
+  border-radius:8px;
+}
+
+button:active{background:rgba(0,234,255,.35)}
+</style>
+</head>
+
+<body>
+<div class="bg"></div>
+
+<div class="hud">
+  <div id="hudName"></div>
+  <div id="hudRank"></div>
+  <div id="hudLvl"></div>
+  <div id="hudXP"></div>
+</div>
+
+<div class="ui">
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="title">⚔️ SISTEMA DO CAÇADOR</div>
+  <button onclick="go('status')">STATUS</button>
+  <button onclick="go('missions')">MISSÕES</button>
+  <button onclick="go('skills')">HABILIDADES</button>
+  <button onclick="go('inventory')">INVENTÁRIO</button>
+</div>
+
+<!-- STATUS -->
+<div id="status" class="screen">
+  <div class="title">📊 STATUS</div>
+  <div class="stat" id="str"></div>
+  <div class="stat" id="agi"></div>
+  <div class="stat" id="int"></div>
+  <button onclick="up('str')">+ Força</button>
+  <button onclick="up('agi')">+ Agilidade</button>
+  <button onclick="up('int')">+ Inteligência</button>
+  <button onclick="go('home')">⬅ Voltar</button>
+</div>
+
+<!-- MISSÕES -->
+<div id="missions" class="screen">
+  <div class="title">📜 MISSÕES</div>
+  <div id="missionBox"></div>
+  <button onclick="go('home')">⬅ Voltar</button>
+</div>
+
+<!-- SKILLS -->
+<div id="skills" class="screen">
+  <div class="title">🔥 HABILIDADES</div>
+  <div id="skillList"></div>
+  <button onclick="go('home')">⬅ Voltar</button>
+</div>
+
+<!-- INVENTÁRIO -->
+<div id="inventory" class="screen">
+  <div class="title">🎒 INVENTÁRIO</div>
+  <div class="stat">🗡️ Adaga Sombria</div>
+  <div class="stat">🧪 Poção de Cura</div>
+  <button onclick="gainXP(60)">Usar Poção (+XP)</button>
+  <button onclick="go('home')">⬅ Voltar</button>
+</div>
+
+</div>
+
+<script>
+let player = JSON.parse(localStorage.getItem("hunter")) || {
+  name:"Caçador",
+  rank:"E",
+  level:1,
+  xp:0,
+  xpMax:100,
+  points:5,
+  str:10,
+  agi:10,
+  int:10
+};
+
+const ranks = ["E","D","C","B","A","S"];
+
+const skills=[
+ {name:"Golpe Sombrio",lvl:1},
+ {name:"Instinto Assassino",lvl:3},
+ {name:"Aura Negra",lvl:5},
+ {name:"Domínio das Sombras",lvl:8}
+];
+
+const missions=[
+ {text:"Derrote monstros fracos",xp:40},
+ {text:"Treine seu corpo",xp:30},
+ {text:"Sobreviva a uma dungeon",xp:80}
+];
+
+function save(){localStorage.setItem("hunter",JSON.stringify(player))}
+
+function render(){
+  str.innerText="Força: "+player.str;
+  agi.innerText="Agilidade: "+player.agi;
+  int.innerText="Inteligência: "+player.int;
+
+  hudName.innerText="👤 "+player.name;
+  hudRank.innerText="Rank: "+player.rank;
+  hudLvl.innerText="Nível: "+player.level;
+  hudXP.innerText=`XP: ${player.xp}/${player.xpMax}`;
+
+  skillList.innerHTML="";
+  skills.forEach(s=>{
+    if(player.level>=s.lvl)
+      skillList.innerHTML+=`<div class="stat">✔ ${s.name}</div>`;
+  });
+
+  missionBox.innerHTML="";
+  missions.forEach(m=>{
+    missionBox.innerHTML+=
+    `<button onclick="completeMission(${m.xp})">${m.text} (+${m.xp} XP)</button>`;
+  });
+}
+
+function up(stat){
+  if(player.points<=0)return;
+  player[stat]++;player.points--;save();render();
+}
+
+function gainXP(val){
+  player.xp+=val;
+  if(player.xp>=player.xpMax){
+    player.xp=0;
+    player.level++;
+    player.points+=5;
+    player.xpMax+=50;
+    updateRank();
+  }
+  save();render();
+}
+
+function updateRank(){
+  let idx=Math.min(Math.floor(player.level/3),ranks.length-1);
+  player.rank=ranks[idx];
+}
+
+function completeMission(xp){
+  gainXP(xp);
+}
+
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+render();
+</script>
+</body>
+</html>
